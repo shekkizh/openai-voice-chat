@@ -224,12 +224,12 @@ export default function Home() {
                 {isRecording ? (
                   <>
                     <Send className="mr-2 h-5 w-5" />
-                    Release to Send
+                    Send
                   </>
                 ) : (
                   <>
                     <Mic className="mr-2 h-5 w-5" />
-                    Push to Talk
+                    Record
                   </>
                 )}
               </Button>
