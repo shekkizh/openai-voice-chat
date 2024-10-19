@@ -1,101 +1,197 @@
-import Image from "next/image";
+'use client';
+
+import { useEffect, useRef, useCallback, useState } from 'react';
+import { RealtimeClient } from '@openai/realtime-api-beta';
+import { ItemType } from '@openai/realtime-api-beta/dist/lib/client';
+import { WavRecorder, WavStreamPlayer } from '../lib/wavtools/index';
+import { instructions } from './constants';
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="https://nextjs.org/icons/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+  const [items, setItems] = useState<ItemType[]>([]);
+  const [isConnected, setIsConnected] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+  const apiKey = process.env.OPENAI_API_KEY;
+  const wavRecorderRef = useRef<WavRecorder>(new WavRecorder({ sampleRate: 24000 }));
+  const wavStreamPlayerRef = useRef<WavStreamPlayer>(new WavStreamPlayer({ sampleRate: 24000 }));
+  const clientRef = useRef<RealtimeClient>(new RealtimeClient({
+    apiKey: apiKey,
+    dangerouslyAllowAPIKeyInBrowser: true,
+  }));
+
+  const connectConversation = useCallback(async () => {
+    if (!clientRef.current || !wavRecorderRef.current || !wavStreamPlayerRef.current) return;
+
+    const client = clientRef.current;
+    const wavRecorder = wavRecorderRef.current;
+    const wavStreamPlayer = wavStreamPlayerRef.current;
+
+    setIsConnected(true);
+    setItems(client.conversation.getItems());
+
+    try {
+      console.log('Attempting to connect...');
+      console.log('Connecting with client configuration:', {
+        apiKey: apiKey?.substring(0, 10) + '...', // Log only the first 10 characters of the API key
+        dangerouslyAllowAPIKeyInBrowser: true,
+      });
+
+      await wavRecorder.begin();
+      console.log('WavRecorder begun');
+      await wavStreamPlayer.connect();
+      console.log('WavStreamPlayer connected');
+      await client.connect();
+      console.log('Client connected');
+      console.log('Connected to conversation');
+    } catch (error) {
+      console.error('Error connecting:', error);
+      setIsConnected(false);
+    }
+  }, []);
+
+  const disconnectConversation = useCallback(async () => {
+    if (!clientRef.current || !wavRecorderRef.current || !wavStreamPlayerRef.current) return;
+
+    setIsConnected(false);
+    setItems([]);
+
+    const client = clientRef.current;
+    client.disconnect();
+
+    const wavRecorder = wavRecorderRef.current;
+    await wavRecorder.end();
+
+    const wavStreamPlayer = wavStreamPlayerRef.current;
+    await wavStreamPlayer.interrupt();
+
+    const deleteConversationItem = useCallback(async (id: string) => {
+      const client = clientRef.current;
+      client?.deleteItem(id);
+    }, []);
+    console.log('Disconnected from conversation');
+  }, []);
+
+  const startRecording = async () => {
+    if (!clientRef.current || !wavRecorderRef.current || !wavStreamPlayerRef.current) {
+      console.error('Client, WavRecorder, or WavStreamPlayer is not initialized when starting recording');
+      return;
+    }
+
+    setIsRecording(true);
+    const client = clientRef.current;
+    const wavRecorder = wavRecorderRef.current;
+    const wavStreamPlayer = wavStreamPlayerRef.current;
+    const trackSampleOffset = await wavStreamPlayer.interrupt();
+    if (trackSampleOffset?.trackId) {
+      const { trackId, offset } = trackSampleOffset;
+      await client.cancelResponse(trackId, offset);
+    }
+
+    try {
+      await wavRecorder.record((data) => client.appendInputAudio(data.mono));
+      console.log('Started recording');
+    } catch (error) {
+      console.error('Error starting recording:', error);
+      setIsRecording(false);
+    }
+  };
+
+  const stopRecording = async () => {
+    if (!clientRef.current || !wavRecorderRef.current || !wavStreamPlayerRef.current) {
+      console.error('Client, WavRecorder, or WavStreamPlayer is not initialized when stopping recording');
+      return;
+    }
+
+    setIsRecording(false);
+    const client = clientRef.current;
+    const wavRecorder = wavRecorderRef.current;
+    await wavRecorder.pause();
+    console.log('Recording paused');
+    console.log('Creating response...');
+    client.createResponse();
+    console.log('Response created');
+  };
+
+  useEffect(() => {
+    if (!clientRef.current || !wavStreamPlayerRef.current) {
+      console.error('Client or WavStreamPlayer is not initialized when setting up event listeners');
+      return;
+    }
+
+    const client = clientRef.current;
+    const wavStreamPlayer = wavStreamPlayerRef.current;
+
+    // Set instructions
+    client.updateSession({ instructions: instructions });
+    // Set transcription, otherwise we don't get user transcriptions back
+    client.updateSession({ input_audio_transcription: { model: 'whisper-1' } });
+
+    client.on('error', (event: any) => console.error(event));
+
+    client.on('conversation.interrupted', async () => {
+      const trackSampleOffset = await wavStreamPlayer.interrupt();
+      if (trackSampleOffset?.trackId) {
+        const { trackId, offset } = trackSampleOffset;
+        await client.cancelResponse(trackId, offset);
+      }
+    });
+    
+    client.on('conversation.updated', async ({ item, delta }: any) => {
+      console.log('Conversation update event received');
+      const items = client.conversation.getItems();
+      if (delta?.audio) {
+        console.log('Audio delta received, adding to player');
+        wavStreamPlayer.add16BitPCM(delta.audio, item.id);
+      }
+      if (item.status === 'completed' && item.formatted.audio?.length) {
+        const wavFile = await WavRecorder.decode(
+          item.formatted.audio,
+          24000,
+          24000
+        );
+        item.formatted.file = wavFile;
+      }
+      setItems(items);
+    });
+
+    setItems(client.conversation.getItems());
+
+    return () => {
+      console.log('Cleaning up client');
+      client.reset();
+    };
+  }, []);
+
+  return (
+    <main className="flex min-h-screen flex-col items-center justify-between p-8 bg-white">
+      <div className="w-full max-w-2xl border border-gray-200 rounded-lg p-4 mb-8 overflow-y-auto max-h-[60vh]">
+        <h2 className="text-2xl font-bold mb-4">Conversation</h2>
+        {items.map((item, index) => (
+          <div key={index} className="mb-2">
+            <strong>{item.role}: </strong>
+            {item.formatted.text || item.formatted.transcript || '(No content)'}
+          </div>
+        ))}
+      </div>
+      <div className="fixed bottom-8 left-0 right-0 flex justify-center space-x-4">
+        <button
+          className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-full text-lg shadow-lg transition duration-300 ease-in-out transform hover:scale-105"
+          onClick={isConnected ? disconnectConversation : connectConversation}
+        >
+          {isConnected ? 'Disconnect' : 'Connect'}
+        </button>
+        {isConnected && (
+          <button
+            className={`${
+              isRecording ? 'bg-red-500 hover:bg-red-700' : 'bg-green-500 hover:bg-green-700'
+            } text-white font-bold py-3 px-6 rounded-full text-lg shadow-lg transition duration-300 ease-in-out transform hover:scale-105`}
+            onMouseDown={startRecording}
+            onMouseUp={stopRecording}
           >
-            <Image
-              className="dark:invert"
-              src="https://nextjs.org/icons/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+            {isRecording ? 'Release to Send' : 'Push to Talk'}
+          </button>
+        )}
+      </div>
+    </main>
   );
 }
