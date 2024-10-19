@@ -21,8 +21,8 @@ As with any LLM, the responses are not deterministic, and the model may hallucin
 ## UI Screenshots
 
 <p align="center">
-  <img src="https://github.com/user-attachments/assets/500274b3-1fde-481e-9645-fe2a4ab4bcb5" width="120"/>
-  <img src="https://github.com/user-attachments/assets/8e3e4ff3-e8bb-4442-8e65-f33dc7eb9bc9" width="120"/>
-  <img src="https://github.com/user-attachments/assets/d6ef35b7-0ed6-4508-88d1-2dbdec364a72" width="120"/>
-  <img src="https://github.com/user-attachments/assets/921568d0-aecb-445d-9cdc-e7bae558e6d5" width="120"/>
+  <img src="https://github.com/user-attachments/assets/500274b3-1fde-481e-9645-fe2a4ab4bcb5" width="180"/>
+  <img src="https://github.com/user-attachments/assets/8e3e4ff3-e8bb-4442-8e65-f33dc7eb9bc9" width="180"/>
+  <img src="https://github.com/user-attachments/assets/d6ef35b7-0ed6-4508-88d1-2dbdec364a72" width="180"/>
+  <img src="https://github.com/user-attachments/assets/921568d0-aecb-445d-9cdc-e7bae558e6d5" width="180"/>
 </p>
