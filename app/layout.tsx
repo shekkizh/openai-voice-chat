@@ -14,8 +14,8 @@ const geistMono = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "OpenAI Voice Assistant",
-  description: "Minimal implementation of OpenAI Realtime VoiceAPI",
+  title: "OpenAI Voice Chat",
+  description: "Minimal implementation of OpenAI Realtime API for voice chat",
 };
 
 export default function RootLayout({

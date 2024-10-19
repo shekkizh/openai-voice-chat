@@ -1,4 +1,4 @@
-# OpenAI Realtime Assistant
+# OpenAI Realtime API - Voice Chat
 
 Minimal implementation of OpenAI's Realtime Voice API. The aim of this projects was to create a simple enough voice assistant to test the capabilities and limitations of the Voice Agents created with the API.
 

@@ -6,6 +6,11 @@ import { ItemType } from '@openai/realtime-api-beta/dist/lib/client';
 import { WavRecorder, WavStreamPlayer } from '../lib/wavtools/index';
 import { instructions } from './constants';
 
+import { Mic, Phone, PhoneOff, Send } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
+import { ScrollArea } from "@/components/ui/scroll-area"
+
 export default function Home() {
   const [items, setItems] = useState<ItemType[]>([]);
   const [isConnected, setIsConnected] = useState(false);
@@ -18,6 +23,8 @@ export default function Home() {
     apiKey: apiKey,
     dangerouslyAllowAPIKeyInBrowser: true,
   }));
+
+  const chatEndRef = useRef<HTMLDivElement>(null);
 
   const connectConversation = useCallback(async () => {
     if (!clientRef.current || !wavRecorderRef.current || !wavStreamPlayerRef.current) return;
@@ -38,10 +45,13 @@ export default function Home() {
 
       await wavRecorder.begin();
       console.log('WavRecorder begun');
+      
       await wavStreamPlayer.connect();
       console.log('WavStreamPlayer connected');
+
       await client.connect();
       console.log('Client connected');
+
       console.log('Connected to conversation');
     } catch (error) {
       console.error('Error connecting:', error);
@@ -53,7 +63,6 @@ export default function Home() {
     if (!clientRef.current || !wavRecorderRef.current || !wavStreamPlayerRef.current) return;
 
     setIsConnected(false);
-    setItems([]);
 
     const client = clientRef.current;
     client.disconnect();
@@ -63,11 +72,7 @@ export default function Home() {
 
     const wavStreamPlayer = wavStreamPlayerRef.current;
     await wavStreamPlayer.interrupt();
-
-    const deleteConversationItem = useCallback(async (id: string) => {
-      const client = clientRef.current;
-      client?.deleteItem(id);
-    }, []);
+  
     console.log('Disconnected from conversation');
   }, []);
 
@@ -162,36 +167,74 @@ export default function Home() {
     };
   }, []);
 
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" })
+  }, [items])
+
   return (
-    <main className="flex min-h-screen flex-col items-center justify-between p-8 bg-white">
-      <div className="w-full max-w-2xl border border-gray-200 rounded-lg p-4 mb-8 overflow-y-auto max-h-[60vh]">
-        <h2 className="text-2xl font-bold mb-4">Conversation</h2>
-        {items.map((item, index) => (
-          <div key={index} className="mb-2">
-            <strong>{item.role}: </strong>
-            {item.formatted.text || item.formatted.transcript || '(No content)'}
+    <div className="flex items-center justify-center min-h-screen bg-background">
+      <Card className="w-full max-w-2xl mx-auto">
+        <CardContent className="p-6 flex flex-col h-[calc(100vh-4rem)]">
+          <ScrollArea className="flex-grow mb-4 pr-4">
+            {items.map((item, index) => (
+              <div
+                key={index}
+                className={`mb-4 p-3 rounded-lg ${
+                  item.role === "user" ? "bg-primary text-primary-foreground ml-auto" : "bg-muted"
+                } max-w-[80%] ${item.role === "user" ? "ml-auto" : "mr-auto"}`}
+              >
+                <p className="text-sm font-medium mb-1">{item.role === "user" ? "You" : "AI"}</p>
+                <p>{item.formatted.text || item.formatted.transcript || "(No content)"}</p>
+              </div>
+            ))}
+            <div ref={chatEndRef} />
+          </ScrollArea>
+          <div className="flex justify-center space-x-4">
+            <Button
+              size="lg"
+              variant={isConnected ? "destructive" : "default"}
+              className="rounded-full text-lg shadow-lg transition duration-300 ease-in-out transform hover:scale-105"
+              onClick={isConnected ? disconnectConversation : connectConversation}
+            >
+              {isConnected ? (
+                  <>
+                    <PhoneOff className="mr-2 h-5 w-5" />
+                    Disconnect
+                  </>
+                ) : (
+                  <>
+                    <Phone className="mr-2 h-5 w-5" />
+                    Connect
+                  </>
+                )}
+            </Button>
+            {isConnected && (
+              <Button
+                size="lg"
+                className={`rounded-full text-lg shadow-lg transition duration-300 ease-in-out transform hover:scale-105 ${
+                  isRecording ? "animate-pulse" : ""
+                }`}
+                onMouseDown={startRecording}
+                onMouseUp={stopRecording}
+                onTouchStart={startRecording}
+                onTouchEnd={stopRecording}
+              >
+                {isRecording ? (
+                  <>
+                    <Send className="mr-2 h-5 w-5" />
+                    Release to Send
+                  </>
+                ) : (
+                  <>
+                    <Mic className="mr-2 h-5 w-5" />
+                    Push to Talk
+                  </>
+                )}
+              </Button>
+            )}
           </div>
-        ))}
-      </div>
-      <div className="fixed bottom-8 left-0 right-0 flex justify-center space-x-4">
-        <button
-          className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-full text-lg shadow-lg transition duration-300 ease-in-out transform hover:scale-105"
-          onClick={isConnected ? disconnectConversation : connectConversation}
-        >
-          {isConnected ? 'Disconnect' : 'Connect'}
-        </button>
-        {isConnected && (
-          <button
-            className={`${
-              isRecording ? 'bg-red-500 hover:bg-red-700' : 'bg-green-500 hover:bg-green-700'
-            } text-white font-bold py-3 px-6 rounded-full text-lg shadow-lg transition duration-300 ease-in-out transform hover:scale-105`}
-            onMouseDown={startRecording}
-            onMouseUp={stopRecording}
-          >
-            {isRecording ? 'Release to Send' : 'Push to Talk'}
-          </button>
-        )}
-      </div>
-    </main>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
