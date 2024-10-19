@@ -199,7 +199,6 @@ export default function Home() {
               {isConnected ? (
                   <>
                     <PhoneOff className="mr-2 h-5 w-5" />
-                    Disconnect
                   </>
                 ) : (
                   <>
@@ -214,10 +213,13 @@ export default function Home() {
                 className={`rounded-full text-lg shadow-lg transition duration-300 ease-in-out transform hover:scale-105 ${
                   isRecording ? "animate-pulse" : ""
                 }`}
-                onMouseDown={startRecording}
-                onMouseUp={stopRecording}
-                onTouchStart={startRecording}
-                onTouchEnd={stopRecording}
+                onClick={() => {
+                  if (isRecording) {
+                    stopRecording();
+                  } else {
+                    startRecording();
+                  }
+                }}
               >
                 {isRecording ? (
                   <>

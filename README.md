@@ -12,7 +12,7 @@ The code heavily borrows from the [OpenAI Realtime Console example](https://gith
 - The Voice Agent is a Push to Talk agent, so you need to press and hold the button to talk.
 - VAD is tricky to test reliably as the exact algorithm used by OpenAI is not documented (might get back on this later).
 - The app uses WebSockets to connect to the OpenAI API, so you need to make sure your firewall allows for WebSocket connections.
-- Tested on Chrome, Safari. **Doesn't work on Firefox.**
+- Tested on Chrome, Safari. _Does not work on Desktop Firefox._ Works fine on Mobile.
 
 ## Limitations
 
